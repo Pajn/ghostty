@@ -114,8 +114,8 @@ GHOSTTY_API GhosttyResult ghostty_tracked_grid_ref_set(
  * lifetime rules as ghostty_terminal_grid_ref(): it is only valid until the
  * next terminal update. Snapshot immediately before calling
  * ghostty_grid_ref_cell(), ghostty_grid_ref_row(),
- * ghostty_grid_ref_graphemes(), ghostty_grid_ref_hyperlink_uri(), or
- * ghostty_grid_ref_style().
+ * ghostty_grid_ref_graphemes(), ghostty_grid_ref_hyperlink_uri(),
+ * ghostty_grid_ref_hyperlink_id(), or ghostty_grid_ref_style().
  *
  * If the tracked reference no longer has a meaningful value, this returns
  * GHOSTTY_NO_VALUE. This includes references whose owning terminal has been

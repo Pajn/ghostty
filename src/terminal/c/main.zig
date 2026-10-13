@@ -251,6 +251,7 @@ pub const grid_ref_cell = grid_ref.grid_ref_cell;
 pub const grid_ref_row = grid_ref.grid_ref_row;
 pub const grid_ref_graphemes = grid_ref.grid_ref_graphemes;
 pub const grid_ref_hyperlink_uri = grid_ref.grid_ref_hyperlink_uri;
+pub const grid_ref_hyperlink_id = grid_ref.grid_ref_hyperlink_id;
 pub const grid_ref_style = grid_ref.grid_ref_style;
 pub const tracked_grid_ref_free = grid_ref_tracked.tracked_grid_ref_free;
 pub const tracked_grid_ref_has_value = grid_ref_tracked.tracked_grid_ref_has_value;

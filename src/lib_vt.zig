@@ -410,6 +410,7 @@ comptime {
             @export(&c.grid_ref_row, .{ .name = "ghostty_grid_ref_row" });
             @export(&c.grid_ref_graphemes, .{ .name = "ghostty_grid_ref_graphemes" });
             @export(&c.grid_ref_hyperlink_uri, .{ .name = "ghostty_grid_ref_hyperlink_uri" });
+            @export(&c.grid_ref_hyperlink_id, .{ .name = "ghostty_grid_ref_hyperlink_id" });
             @export(&c.grid_ref_style, .{ .name = "ghostty_grid_ref_style" });
             @export(&c.tracked_grid_ref_free, .{ .name = "ghostty_tracked_grid_ref_free" });
             @export(&c.tracked_grid_ref_has_value, .{ .name = "ghostty_tracked_grid_ref_has_value" });
