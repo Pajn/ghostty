@@ -191,6 +191,38 @@ GHOSTTY_API GhosttyResult ghostty_grid_ref_hyperlink_uri(
     size_t *out_len);
 
 /**
+ * Get the hyperlink ID for the cell at the grid reference's position.
+ *
+ * This is the ID given with the `id=` parameter of the OSC 8 sequence that
+ * started the hyperlink. Cells that share an ID and URI belong to the same
+ * hyperlink even when they are not contiguous, such as a hyperlink that
+ * wraps across lines.
+ *
+ * Writes the ID bytes into the provided buffer. If the cell has no
+ * hyperlink, or its hyperlink was started without an ID, out_len is set
+ * to 0 and GHOSTTY_SUCCESS is returned.
+ *
+ * If the buffer is too small (or NULL), the function returns
+ * GHOSTTY_OUT_OF_SPACE and writes the required number of bytes to
+ * out_len. The caller can then retry with a sufficiently sized buffer.
+ *
+ * @param ref Pointer to the grid reference
+ * @param buf Output buffer for the ID bytes (may be NULL)
+ * @param buf_len Size of the output buffer in bytes
+ * @param[out] out_len On success, the number of bytes written. On
+ *             GHOSTTY_OUT_OF_SPACE, the required buffer size in bytes.
+ * @return GHOSTTY_SUCCESS on success, GHOSTTY_INVALID_VALUE if the ref's
+ *         node is NULL, GHOSTTY_OUT_OF_SPACE if the buffer is too small
+ *
+ * @ingroup grid_ref
+ */
+GHOSTTY_API GhosttyResult ghostty_grid_ref_hyperlink_id(
+    const GhosttyGridRef *ref,
+    uint8_t *buf,
+    size_t buf_len,
+    size_t *out_len);
+
+/**
  * Get the style of the cell at the grid reference's position.
  *
  * @param ref Pointer to the grid reference

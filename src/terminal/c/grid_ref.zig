@@ -3,6 +3,7 @@ const testing = std.testing;
 const lib = @import("../lib.zig");
 const page = @import("../page.zig");
 const PageList = @import("../PageList.zig");
+const hyperlink = @import("../hyperlink.zig");
 const point = @import("../point.zig");
 const size = @import("../size.zig");
 const stylepkg = @import("../style.zig");
@@ -99,31 +100,68 @@ pub fn grid_ref_hyperlink_uri(
 ) callconv(lib.calling_conv) Result {
     const p = ref.toPin() orelse return .invalid_value;
     const terminal_page = p.node.page();
-    const rac = terminal_page.getRowAndCell(p.x, p.y);
-    const cell = rac.cell;
-
-    if (!cell.hyperlink) {
-        out_len.* = 0;
-        return .success;
-    }
-
-    const link_id = terminal_page.lookupHyperlink(cell) orelse {
+    const entry = hyperlinkEntry(terminal_page, p) orelse {
         out_len.* = 0;
         return .success;
     };
-    const entry = terminal_page.hyperlink_set.get(
-        terminal_page.memory,
-        link_id,
+    return copyBytes(
+        entry.uri.slice(terminal_page.memory),
+        out_buf,
+        buf_len,
+        out_len,
     );
-    const uri = entry.uri.slice(terminal_page.memory);
+}
 
-    if (out_buf == null or buf_len < uri.len) {
-        out_len.* = uri.len;
+pub fn grid_ref_hyperlink_id(
+    ref: *const CGridRef,
+    out_buf: ?[*]u8,
+    buf_len: usize,
+    out_len: *usize,
+) callconv(lib.calling_conv) Result {
+    const p = ref.toPin() orelse return .invalid_value;
+    const terminal_page = p.node.page();
+    const entry = hyperlinkEntry(terminal_page, p) orelse {
+        out_len.* = 0;
+        return .success;
+    };
+    const id = switch (entry.id) {
+        .explicit => |slice| slice.slice(terminal_page.memory),
+        // Implicit IDs are internal and only meaningful within a page,
+        // so we report them the same as no ID.
+        .implicit => {
+            out_len.* = 0;
+            return .success;
+        },
+    };
+    return copyBytes(id, out_buf, buf_len, out_len);
+}
+
+/// The hyperlink entry for the cell at the pin, if the cell has one.
+fn hyperlinkEntry(
+    terminal_page: *const page.Page,
+    p: PageList.Pin,
+) ?*const hyperlink.PageEntry {
+    const rac = terminal_page.getRowAndCell(p.x, p.y);
+    if (!rac.cell.hyperlink) return null;
+    const link_id = terminal_page.lookupHyperlink(rac.cell) orelse return null;
+    return terminal_page.hyperlink_set.get(terminal_page.memory, link_id);
+}
+
+/// Copy bytes to the caller's buffer, or report the size the buffer
+/// needs if it is NULL or too small.
+fn copyBytes(
+    bytes: []const u8,
+    out_buf: ?[*]u8,
+    buf_len: usize,
+    out_len: *usize,
+) Result {
+    if (out_buf == null or buf_len < bytes.len) {
+        out_len.* = bytes.len;
         return .out_of_space;
     }
 
-    @memcpy(out_buf.?[0..uri.len], uri);
-    out_len.* = uri.len;
+    @memcpy(out_buf.?[0..bytes.len], bytes);
+    out_len.* = bytes.len;
     return .success;
 }
 
@@ -254,4 +292,90 @@ test "grid_ref_hyperlink_uri with hyperlink" {
     var buf: [256]u8 = undefined;
     try testing.expectEqual(Result.success, grid_ref_hyperlink_uri(&ref, &buf, buf.len, &len));
     try testing.expectEqualStrings("https://example.com", buf[0..len]);
+}
+
+test "grid_ref_hyperlink_id null node" {
+    const ref = CGridRef{};
+    var len: usize = undefined;
+    try testing.expectEqual(Result.invalid_value, grid_ref_hyperlink_id(&ref, null, 0, &len));
+}
+
+test "grid_ref_hyperlink_id no hyperlink" {
+    var terminal: terminal_c.Terminal = null;
+    try testing.expectEqual(Result.success, terminal_c.new(
+        &lib.alloc.test_allocator,
+        &terminal,
+        80,
+        24,
+    ));
+    defer terminal_c.free(terminal);
+
+    terminal_c.vt_write(terminal, "hello", 5);
+
+    var ref: CGridRef = undefined;
+    try testing.expectEqual(Result.success, terminal_c.grid_ref(
+        terminal,
+        point.Point.cval(.{ .active = .{ .x = 0, .y = 0 } }),
+        &ref,
+    ));
+
+    var len: usize = undefined;
+    try testing.expectEqual(Result.success, grid_ref_hyperlink_id(&ref, null, 0, &len));
+    try testing.expectEqual(@as(usize, 0), len);
+}
+
+test "grid_ref_hyperlink_id implicit id" {
+    var terminal: terminal_c.Terminal = null;
+    try testing.expectEqual(Result.success, terminal_c.new(
+        &lib.alloc.test_allocator,
+        &terminal,
+        80,
+        24,
+    ));
+    defer terminal_c.free(terminal);
+
+    const seq = "\x1b]8;;https://example.com\x1b\\link\x1b]8;;\x1b\\";
+    terminal_c.vt_write(terminal, seq, seq.len);
+
+    var ref: CGridRef = undefined;
+    try testing.expectEqual(Result.success, terminal_c.grid_ref(
+        terminal,
+        point.Point.cval(.{ .active = .{ .x = 0, .y = 0 } }),
+        &ref,
+    ));
+
+    var len: usize = undefined;
+    try testing.expectEqual(Result.success, grid_ref_hyperlink_id(&ref, null, 0, &len));
+    try testing.expectEqual(@as(usize, 0), len);
+}
+
+test "grid_ref_hyperlink_id explicit id" {
+    var terminal: terminal_c.Terminal = null;
+    try testing.expectEqual(Result.success, terminal_c.new(
+        &lib.alloc.test_allocator,
+        &terminal,
+        80,
+        24,
+    ));
+    defer terminal_c.free(terminal);
+
+    const seq = "\x1b]8;id=doc;https://example.com\x1b\\link\x1b]8;;\x1b\\";
+    terminal_c.vt_write(terminal, seq, seq.len);
+
+    var ref: CGridRef = undefined;
+    try testing.expectEqual(Result.success, terminal_c.grid_ref(
+        terminal,
+        point.Point.cval(.{ .active = .{ .x = 0, .y = 0 } }),
+        &ref,
+    ));
+
+    // First query length with null buf
+    var len: usize = undefined;
+    try testing.expectEqual(Result.out_of_space, grid_ref_hyperlink_id(&ref, null, 0, &len));
+    try testing.expectEqual(@as(usize, 3), len); // "doc"
+
+    // Now read with a properly sized buffer
+    var buf: [256]u8 = undefined;
+    try testing.expectEqual(Result.success, grid_ref_hyperlink_id(&ref, &buf, buf.len, &len));
+    try testing.expectEqualStrings("doc", buf[0..len]);
 }
